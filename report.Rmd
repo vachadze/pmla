@@ -1,0 +1,89 @@
+---
+title: "Coursera DS PML Project"
+author: "David Vachadze"
+date: '9 июля 2017 г '
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## The goal of the project
+
+One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. We use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://groupware.les.inf.puc-rio.br/har
+The goal of this project is to predict the manner in which they did the exercise. This is the "classe" variable in the training set. You may use any of the other variables to predict with. You should create a report describing how you built your model, how you used cross validation, what you think the expected out of sample error is, and why you made the choices you did. You will also use your prediction model to predict 20 different test cases.
+
+## Data preparation
+
+Let's first load the data, do some cleaning like selecting meaningfull features, removing NA-only and near zero variance predictors 
+
+```{r data}
+setwd("~/R/Coursera/r_work/ml/pmla")
+library(caret)
+pml.train <- read.csv("pml-training.csv", na.strings=c("NA","#DIV/0!",""))
+pml.test <- read.csv("pml-testing.csv", na.strings=c("NA","#DIV/0!",""))
+pml.test <- pml.test[,8:length(pml.test)] # remove meta-data
+pml.train <- pml.train[,8:length(pml.train)] # remove meta-data
+t <- apply(pml.train, 2, function(x) sum(is.na(x))/NROW(x)) # check NA percentage in columns
+features.names <- names(t[t<0.95]) # leave only columns with less than 95% of NAs
+pml.train <- pml.train[,features.names]
+pml.test <- pml.test[,features.names[1:length(features.names)-1]]
+summary(nearZeroVar(pml.train, saveMetrics = TRUE)[,c(3:4)]) #check if near zero variance data exists to be removed
+```
+## Model candidates selection
+
+We have multi-class classification problem with relatively large dataset, so we try gbm, random forest and lda
+We run cross-validation for each model via trainControl caret function, 10-fold 3 repeats, to ensure balanced fitting
+Than choose best model by means of accuracy
+
+
+```{r model}
+set.seed(1234)
+inTrain <- createDataPartition(y=pml.train$classe, p=0.75, list=FALSE)
+training <- pml.train[inTrain,]
+testing <- pml.train[-inTrain,]
+dim(training)
+dim(testing)
+
+#########################################################################
+# the following code takes time to execute, so it wa executed earlier ###
+# now I comment it and load sult from previous iteration ################
+#########################################################################
+#control <- trainControl(method="repeatedcv", number=10, repeats=3)
+#set.seed(1234)
+#modelLda <- train(classe ~ ., data=training, method="lda", trControl=control)
+#set.seed(1234)
+#modelGbm <- train(classe ~ ., data=training, method="gbm", trControl=control, verbose=FALSE)
+#set.seed(1234)
+#modelRf <- train(classe ~ ., data=training, method="rf", trControl=control)
+#results <- resamples(list(LDA=modelLda, GBM=modelGbm, RF=modelRf))
+
+#### now load previously saved data ####################################
+results <- readRDS("results.RDS") 
+modelGbm <- readRDS("modelGbm.RDS")
+modelRf <- readRDS("modelRf.RDS")
+summary(results)
+bwplot(resamples(list(GBM=modelGbm, RF=modelRf))) #omit poor LDA model to adjust x scale 
+print(modelRf)
+```
+
+## Model evaluation
+
+so we see that best model is Random Forest, with 0.9928 accuracy. 
+No we check this model on testing set with known classe for out of sample accuracy
+
+```{r test}
+pred_rf <- predict(modelRf, testing)
+confusionMatrix(pred_rf, testing$classe)$overall
+```
+
+We see good results, which means that we have balanced fitting via cross-validation
+
+## Apply winning model to pml testing data
+
+```{r completition}
+pml.predict <- predict(modelRf, pml.test)
+pml.predict
+```
+

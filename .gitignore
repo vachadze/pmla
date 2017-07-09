@@ -48,3 +48,4 @@ Temporary Items
 # =========================
 # Data files
 *.csv
+*.RDS
