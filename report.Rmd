@@ -1,7 +1,7 @@
 ﻿---
 title: "Coursera DS PML Project"
 author: "David Vachadze"
-date: '9 июля 2017 г '
+date: '15 июля 2017 г '
 output: html_document
 ---
 
